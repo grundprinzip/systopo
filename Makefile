@@ -5,10 +5,10 @@ all: libsystopo.so main
 main: src/main.cc
 	g++ -o main src/main.cc -lsystopo -Iinclude -L. -g
 
-libsystopo.so: systopo.o
+libsystopo.so: src/systopo.o 
 	g++ -o libsystopo.so -shared src/systopo.o -Lsrc -g
 
-systopo.o: include/systopo.h src/systopo.cc
+src/systopo.o: include/systopo.h src/systopo.cc
 	g++ -fPIC -Iinclude -c -o src/systopo.o src/systopo.cc -g
 
 clean:
