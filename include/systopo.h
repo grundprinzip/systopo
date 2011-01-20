@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <string>
+#include <iostream>
 
 namespace systopo
 {
@@ -46,6 +47,6 @@ namespace systopo
      * Based on the information provided by sysfs this is the entry
      * method to the library that reads the contents from there.
      */
-    System * getSystemTopology();
+    System getSystemTopology();
 
 }

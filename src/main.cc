@@ -4,8 +4,6 @@ using namespace systopo;
 
 int main(void)
 {
-    System * s = getSystemTopology();
-    delete s;
-
+    System s = getSystemTopology();
     return 0;
 }

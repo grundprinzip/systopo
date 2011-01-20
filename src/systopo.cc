@@ -6,7 +6,44 @@
 #include <fstream>
 #include <algorithm>
 
+#include <sys/types.h>
+#include <dirent.h>
+
+#include <stdexcept>
+
 using namespace systopo;
+
+bool is_size(std::string data)
+{
+    if (data.find("K") != std::string::npos || data.find("M") != std::string::npos)
+        return true;
+    else
+        return false;
+}
+
+size_t parse_size(std::string data)
+{
+    std::stringstream ss;
+    size_t result;
+    
+    // First check which size, caches should be K or M but not G :)
+    if (size_t found = data.find("K") != std::string::npos)
+    {
+        ss << data.substr(0, found);
+        ss >> result;
+        return result * 1024;
+        
+    } else if (size_t found = data.find("M") != std::string::npos)
+    {
+        ss << data.substr(0, found);
+        ss >> result;
+        return result * 1024 * 1024;
+        
+    } else {
+        throw std::runtime_error("Cannot parse this: " + data);
+    }
+}
+
 
 /*
  * Parsing a given list from sysfs
@@ -18,9 +55,17 @@ using namespace systopo;
  */
 std::vector<size_t> parse_list(std::string list)
 {
+    
     size_t tmp;
     std::vector<size_t> result;
     
+    // Check if its a number
+    if (is_size(list))
+    {
+        result.push_back(parse_size(list));
+        return result;
+    }
+
     std::stringstream ss(list);
     std::string part;
 
@@ -52,6 +97,35 @@ std::vector<size_t> parse_list(std::string list)
     return result;
 }
 
+std::vector<std::string> getFolders(std::string path)
+{
+
+    DIR *dp;
+    struct dirent *dirp;
+
+    std::vector<std::string> result;
+    
+
+     if((dp = opendir(path.c_str())) == NULL)
+     {
+         std::cout << "Failed to open " << path << std::endl;
+         exit(2);
+     }
+
+     while ((dirp = readdir(dp)) != NULL)
+     {
+         // Only directories and not . and ..
+         if (dirp->d_type == DT_DIR && dirp->d_name[0] != '.')
+         {
+             result.push_back(std::string(dirp->d_name));
+         }
+     }
+
+     closedir(dp);
+     
+     return result;
+}
+
 std::string get_file_contents(std::string path)
 {
     std::ifstream f(path.c_str());
@@ -68,6 +142,31 @@ std::string get_file_contents(std::string path)
 #define SYSTOPO_BASE_PATH "/sys/devices/system/cpu/cpu"
 #define GET_LIST_FOR_PATH(p) parse_list(get_file_contents(p))
 
+#define CACHE_ATTR_SIZE 6
+std::string cache_attrs[CACHE_ATTR_SIZE] = {"coherency_line_size", "level",
+                                            "number_of_sets", "physical_line_partition",
+                                            "size", "ways_of_associativity"};
+
+Cache parse_cache_data(const std::string p)
+{
+    Cache result;
+
+    result.coherency_line_size = GET_LIST_FOR_PATH(p + "/" + cache_attrs[0])[0];
+    result.level = GET_LIST_FOR_PATH(p + "/" + cache_attrs[1])[0];
+    result.number_of_sets = GET_LIST_FOR_PATH(p + "/" + cache_attrs[2])[0];
+    result.physical_line_partition = GET_LIST_FOR_PATH(p + "/" + cache_attrs[3])[0];
+    result.size = GET_LIST_FOR_PATH(p + "/" + cache_attrs[4])[0];
+    result.ways_of_associativity = GET_LIST_FOR_PATH(p + "/" + cache_attrs[5])[0];
+
+    // Get the type
+    std::stringstream s;
+    s << p << "/type";
+    result.type = get_file_contents(s.str());
+    
+    return result;
+}
+
+
 /*
  * Read the system topology of cores and caches
  *
@@ -75,9 +174,9 @@ std::string get_file_contents(std::string path)
  * sys. Which is then parsed and used as a hook into which CPUs can be
  * further parsed.
  */
-System* systopo::getSystemTopology()
+System systopo::getSystemTopology()
 {
-    System* result = new System;
+    System result;
 
     // Get online CPUs
     std::vector<size_t> cpus = parse_list(get_file_contents(SYSTOPO_ONLINE_PATH));
@@ -117,9 +216,17 @@ System* systopo::getSystemTopology()
         
         std::stringstream cache_path;
         cache_path << SYSTOPO_BASE_PATH << i << "/cache/";
+        std::string cpath = cache_path.str();
 
+        std::vector<std::string> caches_f = getFolders(cache_path.str());
+        for(size_t j=0; j < caches_f.size(); ++j)
+        {
+            std::stringstream tmp;
+            tmp << cpath << caches_f[j];
+            cpu.caches.push_back(parse_cache_data(tmp.str()));
+        }
 
-        result->cpus.push_back(cpu);
+        result.cpus.push_back(cpu);
         
     }
     
