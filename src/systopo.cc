@@ -13,7 +13,10 @@
 
 using namespace systopo;
 
-bool is_size(std::string data)
+/*
+ * Checks wether or not the input string has a size marker
+ */
+bool is_size(const std::string data)
 {
     if (data.find("K") != std::string::npos || data.find("M") != std::string::npos)
         return true;
@@ -21,7 +24,11 @@ bool is_size(std::string data)
         return false;
 }
 
-size_t parse_size(std::string data)
+/*
+ * Parses th size value given a size marker and returns the size of
+ * the vaue in bytes.
+ */
+size_t parse_size(const std::string data)
 {
     std::stringstream ss;
     size_t result;
@@ -53,7 +60,7 @@ size_t parse_size(std::string data)
  * quite easy: First split by comma, than parse if it's a range or a
  * single value, if its a range parse and add it.
  */
-std::vector<size_t> parse_list(std::string list)
+std::vector<size_t> parse_list(const std::string list)
 {
     
     size_t tmp;
@@ -97,7 +104,12 @@ std::vector<size_t> parse_list(std::string list)
     return result;
 }
 
-std::vector<std::string> getFolders(std::string path)
+/*
+ * Returns a list of folders for a given path excluding the . and
+ * .. directory entries. The result of the operation is a std::vector
+ * of directory names.
+ */
+std::vector<std::string> getFolders(const std::string path)
 {
 
     DIR *dp;
@@ -126,9 +138,17 @@ std::vector<std::string> getFolders(std::string path)
      return result;
 }
 
-std::string get_file_contents(std::string path)
+/*
+  Read the contents of a file into a stringbuffer and return a
+  std::string
+ */
+std::string get_file_contents(const std::string path)
 {
     std::ifstream f(path.c_str());
+
+    if (!f.good())
+        throw std::runtime_error("Could not open file at: " + path);
+    
     std::ostringstream tmp;
 
     tmp << f.rdbuf();
